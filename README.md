@@ -47,3 +47,9 @@ python -m pytest -q    # 테스트
 ## 배포
 
 `vercel.json`이 포함되어 있어 Vercel에 그대로 배포됩니다. Vercel 프로젝트 환경 변수에 `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`를 추가하세요.
+
+## 현재 배포
+
+- 웹사이트: https://tta260909ver.vercel.app (Vercel 프로젝트 `tta_260909_ver`)
+- GitHub: https://github.com/okio1-create/TTA-260909
+- Supabase: 프로젝트 `TTA_260909_DB` (ref `mjudbmjwkhmagabezekz`, ap-northeast-2) — `files` 테이블 + 비공개 `files` 버킷
