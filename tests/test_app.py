@@ -154,3 +154,34 @@ def test_404_json_for_api(client):
     r = client.get("/api/files/nope/download")
     assert r.status_code == 404
     assert r.get_json()["error"]
+
+
+def test_preview_blocks_active_content(client):
+    for name, ctype in [("page.html", "text/html"), ("icon.svg", "image/svg+xml"), ("x.xml", "text/xml")]:
+        rec = upload(client, name, b"<script>alert(1)</script>", ctype).get_json()["files"][0]
+        r = client.get(f"/api/files/{rec['id']}/preview")
+        assert r.status_code == 200
+        assert r.mimetype == "application/octet-stream"
+        assert "attachment" in r.headers["Content-Disposition"]
+        assert "sandbox" in r.headers["Content-Security-Policy"]
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_preview_extension_overrides_spoofed_type(client):
+    rec = upload(client, "evil.html", b"<b>x</b>", "text/plain").get_json()["files"][0]
+    r = client.get(f"/api/files/{rec['id']}/preview")
+    assert r.mimetype == "application/octet-stream"
+    assert "attachment" in r.headers["Content-Disposition"]
+
+
+def test_preview_safe_types_stay_inline_with_headers(client):
+    rec = upload(client, "pic.png", b"\x89PNG\r\n", "image/png").get_json()["files"][0]
+    r = client.get(f"/api/files/{rec['id']}/preview")
+    assert r.mimetype == "image/png"
+    assert "attachment" not in r.headers.get("Content-Disposition", "")
+    assert r.headers["Content-Security-Policy"].startswith("sandbox;")
+    rec = upload(client, "doc.pdf", b"%PDF-1.4", "application/pdf").get_json()["files"][0]
+    r = client.get(f"/api/files/{rec['id']}/preview")
+    assert r.mimetype == "application/pdf"
+    assert "sandbox" not in r.headers["Content-Security-Policy"]
+    assert r.headers["X-Content-Type-Options"] == "nosniff"

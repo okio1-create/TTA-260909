@@ -100,18 +100,49 @@ def file_info(file_id: str):
     return jsonify(_record_or_404(file_id).to_dict())
 
 
+# Types a browser would execute as a document on our origin -> never render inline.
+ACTIVE_CONTENT_TYPES = {
+    "text/html",
+    "application/xhtml+xml",
+    "image/svg+xml",
+    "text/xml",
+    "application/xml",
+    "text/javascript",
+    "application/javascript",
+    "application/x-javascript",
+}
+ACTIVE_EXTENSIONS = {".html", ".htm", ".xhtml", ".svg", ".svgz", ".xml", ".js", ".mjs", ".xsl", ".xslt"}
+
+
+def _is_active_content(rec) -> bool:
+    ctype = (rec.content_type or "").split(";")[0].strip().lower()
+    ext = os.path.splitext(rec.name)[1].lower()
+    return ctype in ACTIVE_CONTENT_TYPES or ext in ACTIVE_EXTENSIONS
+
+
 def _send(file_id: str, as_attachment: bool):
     rec = _record_or_404(file_id)
     data = storage.read(file_id)
     if data is None:
         abort(404, description="file content missing")
-    return send_file(
+    inline_ok = not as_attachment and not _is_active_content(rec)
+    mimetype = rec.content_type if inline_ok else "application/octet-stream"
+    resp = send_file(
         io.BytesIO(data),
-        mimetype=rec.content_type,
-        as_attachment=as_attachment,
+        mimetype=mimetype,
+        as_attachment=not inline_ok,
         download_name=rec.name,
         max_age=0,
     )
+    # Even for inline previews, keep the response isolated: no scripts, no
+    # same-origin access, no MIME sniffing into something executable.
+    csp = "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"
+    if mimetype != "application/pdf":  # browsers' PDF viewers break under `sandbox`
+        csp = "sandbox; " + csp
+    resp.headers["Content-Security-Policy"] = csp
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    return resp
 
 
 @app.get("/api/files/<file_id>/download")

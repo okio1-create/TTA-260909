@@ -92,7 +92,7 @@ function fmtSize(n) {
 }
 function fmtDate(s) { const d = new Date(s); return isNaN(d) ? s : d.toLocaleString('ko-KR', {hour12:false}); }
 function esc(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function previewable(ct) { return /^(image\/|text\/|application\/pdf|video\/|audio\/)/.test(ct); }
+function previewable(ct) { return /^(image\/|text\/|application\/pdf|video\/|audio\/)/.test(ct) && !/html|svg|xml|javascript/.test(ct); }
 
 async function api(url, opts) {
   const r = await fetch(url, opts);
